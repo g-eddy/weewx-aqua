@@ -20,16 +20,16 @@ import time
 import weewx
 import weewx.units
 from weewx.engine import StdService
+from weeutil.weeutil import to_int, to_bool
 
 log = logging.getLogger(__name__)
 version = "3.2"
 
 
 class AquagaugeSvc(StdService):
-    """service that inserts data from Aquagauge controller into LOOP packets
-
-    pseudo-driver for aquagauge controller, which supports up to 8 wireless
-    sensors, that inserts its values into next LOOP record
+    """
+    service for Aquagauge water level sensor controller, which supports up to
+    8 wireless sensors
 
     configuration:
     [Aquagauge]
@@ -44,6 +44,7 @@ class AquagaugeSvc(StdService):
             # before trying all over again. keep trying until port open
             # succeeds. read failure is handled by closing and re-opening the
             # port.
+        log_success             # override global 'log_success'
         [[ _sensor_id_ ]]       # sensor no. (0-7)
             data_type           # data_type in LOOP record to be written
                                 # (no default)
@@ -60,6 +61,7 @@ class AquagaugeSvc(StdService):
         #open_attempts_max = 4
         #open_attempts_delay = 2
         #open_attempts_delay_long = 1800
+        log_success = false
         [[ 0 ]]
             data_type = riverLevel
             unit = mm
@@ -81,11 +83,16 @@ class AquagaugeSvc(StdService):
 
         try:
             port = svc_sect['port']
-            speed = int(svc_sect.get('speed', 2400))
-            open_attempts_max = int(svc_sect.get('open_attempts_max', 4))
-            open_attempts_delay = int(svc_sect.get('open_attempts_delay', 2))
+            speed = to_int(svc_sect.get('speed', 2400))
+            open_attempts_max = to_int(svc_sect.get('open_attempts_max', 4))
+            open_attempts_delay = to_int(svc_sect.get('open_attempts_delay', 2))
             open_attempts_delay_long = \
-                        int(svc_sect.get('open_attempts_delay_long', 1800))
+                        to_int(svc_sect.get('open_attempts_delay_long', 1800))
+            if 'log_success' in svc_sect:
+                self.log_success = to_bool(svc_sect['log_success'])
+            else:  # use global value
+                self.log_success = \
+                                to_bool(config_dict.get('log_success', False))
         except KeyError as e:
             log.error(f"{self.__class__.__name__}: config: missing {e.args[0]}")
             return      # slip away without becoming a packet listener
@@ -103,7 +110,7 @@ class AquagaugeSvc(StdService):
             if isinstance(sensor_sect, configobj.Section):
                 sensor_defs_count += 1
                 try:
-                    sensor_id = int(sensor_id)
+                    sensor_id = to_int(sensor_id)
                     data_type = sensor_sect['data_type']
                     unit = sensor_sect['unit']
                     unit_group = weewx.units.obs_group_dict[data_type]
@@ -173,7 +180,9 @@ class AquagaugeSvc(StdService):
                           f" queue.Empty")
             pass        # corner case that can be ignored
         if readings_count > 0:
-            log.info(f"{self.__class__.__name__}: {readings_count} readings found")
+            if self.log_success or weewx.debug > 0:
+                log.info(f"{self.__class__.__name__}: {readings_count}"
+                         f" readings found")
         else:
             if weewx.debug > 1:
                 log.debug(f"{self.__class__.__name__}.new_loop_record:"

@@ -1,4 +1,4 @@
-#weewx-aqua
+<h1>weewx-aqua</h1>
 <p>service for Aquagauge water level sensor controller, which supports up to
 8 wireless sensors</p>
 
@@ -16,6 +16,7 @@
           # before trying all over again. keep trying until port open
           # succeeds. read failure is handled by closing and re-opening the
           # port.
+      log_success             # override global 'log_success'
       [[ _sensor_id_ ]]       # sensor no. (0-7)
           data_type           # data_type in LOOP record to be written
                               # (no default)
@@ -33,6 +34,7 @@
       #open_attempts_max = 4
       #open_attempts_delay = 2
       #open_attempts_delay_long = 1800
+      log_success = false
       [[ 0 ]]
           data_type = riverLevel
           unit = mm
